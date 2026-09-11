@@ -1,4 +1,6 @@
-import streamlit as st
+                
+                        
+            import streamlit as st
 import streamlit.components.v1 as components
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -17,9 +19,9 @@ st.set_page_config(
 if "lang_selected" not in st.session_state:
     st.session_state.lang_selected = False
 if "user_lang" not in st.session_state:
-    st.session_state.user_lang = "Hindi (हिन्दी)"
+    st.session_state.user_lang = "Bengali (বাংলা)"
 if "lang_code" not in st.session_state:
-    st.session_state.lang_code = "hi-IN"
+    st.session_state.lang_code = "bn-IN"
 if "last_spoken_msg" not in st.session_state:
     st.session_state.last_spoken_msg = ""
 
@@ -42,14 +44,14 @@ LANGUAGES = {
     "Gujarati (ગુજરાતી)": "gu-IN",
     "Tamil (தமிழ்)": "ta-IN",
     "Telugu (తెలుగు)": "te-IN",
-    "Kannada (ಕನ್ನಡ)": "kn-IN",
+    "Kannada (કನ್ನಡ)": "kn-IN",
     "Malayalam (മലയാളം)": "ml-IN",
     "Odia (ଓଡ଼ିଆ)": "or-IN",
     "Punjabi (ਪੰਜਾਬੀ)": "pa-IN"
 }
 
-# 3. Controlled Speech Engine (Prevents Overlap & Stuttering)
-def speak_guaranteed(text, lang_code="hi-IN"):
+# 3. Controlled Speech Engine
+def speak_guaranteed(text, lang_code="bn-IN"):
     """Cancels any ongoing speech queue before speaking new text."""
     if st.session_state.last_spoken_msg != text:
         st.session_state.last_spoken_msg = text
@@ -67,6 +69,46 @@ def speak_guaranteed(text, lang_code="hi-IN"):
         </script>
         """
         components.html(js_code, height=0, width=0)
+
+# Helper function to match transcribed text across languages & scripts
+def detect_language_from_speech(spoken_text):
+    val = spoken_text.lower()
+    
+    # Bengali phonetic & script variations
+    if any(k in val for k in ["bengali", "bangla", "বাংলা", "बांग्ला", "বংগ"]):
+        return "Bengali (বাংলা)"
+    # Hindi
+    elif any(k in val for k in ["hindi", "हिंदी", "हिन्दी"]):
+        return "Hindi (हिन्दी)"
+    # Marathi
+    elif any(k in val for k in ["marathi", "मराठी"]):
+        return "Marathi (मराठी)"
+    # Gujarati
+    elif any(k in val for k in ["gujarati", "ગુજરાતી", "गुजराती"]):
+        return "Gujarati (ગુજરાતી)"
+    # Tamil
+    elif any(k in val for k in ["tamil", "தமிழ்", "तमिल"]):
+        return "Tamil (தமிழ்)"
+    # Telugu
+    elif any(k in val for k in ["telugu", "తెలుగు", "तेलुगु"]):
+        return "Telugu (తెలుగు)"
+    # Kannada
+    elif any(k in val for k in ["kannada", "કನ್ನಡ", "कन्नड़"]):
+        return "Kannada (કನ್ನಡ)"
+    # Malayalam
+    elif any(k in val for k in ["malayalam", "മലയാളം", "मलयालम"]):
+        return "Malayalam (മലയാളം)"
+    # Odia
+    elif any(k in val for k in ["odia", "oriya", "ଓଡ଼ିଆ", "उड़िया"]):
+        return "Odia (ଓଡ଼ିଆ)"
+    # Punjabi
+    elif any(k in val for k in ["punjabi", "ਪੰਜਾਬੀ", "पंजाबी"]):
+        return "Punjabi (ਪੰਜਾਬੀ)"
+    # English default
+    elif "english" in val or "अंग्रेजी" in val or "ইংরেজি" in val:
+        return "English"
+    
+    return None
 
 # 4. Header & Emblem
 st.markdown("""
@@ -129,15 +171,17 @@ with tab1:
     col_select, col_mic = st.columns([2, 1])
 
     with col_select:
-        options = ["-- Select Language / ভাষা নির্বাচন করুন --"] + list(LANGUAGES.keys())
-        choice = st.selectbox("Choose Language:", options)
+        options = list(LANGUAGES.keys())
+        # Automatically select index based on state
+        default_idx = options.index(st.session_state.user_lang) if st.session_state.user_lang in options else 0
+        choice = st.selectbox("Choose Language / ভাষা নির্বাচন করুন:", options, index=default_idx)
 
-        if choice != "-- Select Language / ভাষা নির্বাচন করুন --":
-            if st.session_state.user_lang != choice:
-                st.session_state.user_lang = choice
-                st.session_state.lang_code = LANGUAGES[choice]
-                st.session_state.lang_selected = True
-                st.session_state.last_spoken_msg = "" # Reset speech cache
+        if choice != st.session_state.user_lang:
+            st.session_state.user_lang = choice
+            st.session_state.lang_code = LANGUAGES[choice]
+            st.session_state.lang_selected = True
+            st.session_state.last_spoken_msg = ""
+            st.rerun()
 
     with col_mic:
         st.write("---")
@@ -156,9 +200,9 @@ with tab1:
                 status.innerText = "Speech recognition not supported.";
                 return;
             }
-            window.speechSynthesis.cancel(); // Silence voice while mic is listening
+            window.speechSynthesis.cancel();
             var recognition = new webkitSpeechRecognition();
-            recognition.lang = 'hi-IN';
+            recognition.lang = 'hi-IN'; // Multi-script capturing mode
             recognition.interimResults = false;
             
             recognition.onstart = function() { 
@@ -178,54 +222,38 @@ with tab1:
         spoken_val = components.html(mic_html, height=100)
         
         if spoken_val:
-            val = str(spoken_val).lower()
-            matched = None
-            if "bengali" in val or "বাংলা" in val or "bangla" in val:
-                matched = "Bengali (বাংলা)"
-            elif "marathi" in val or "मराठी" in val:
-                matched = "Marathi (मराठी)"
-            elif "gujarati" in val or "ગુજરાતી" in val:
-                matched = "Gujarati (ગૂજરાતી)"
-            elif "tamil" in val or "தமிழ்" in val:
-                matched = "Tamil (தமிழ்)"
-            elif "telugu" in val or "తెలుగు" in val:
-                matched = "Telugu (తెలుగు)"
-            elif "hindi" in val or "हिंदी" in val or "हिन्दी" in val:
-                matched = "Hindi (हिन्दी)"
-            else:
-                matched = "English"
-                
-            if st.session_state.user_lang != matched:
-                st.session_state.user_lang = matched
-                st.session_state.lang_code = LANGUAGES[matched]
+            detected = detect_language_from_speech(str(spoken_val))
+            if detected and detected != st.session_state.user_lang:
+                st.session_state.user_lang = detected
+                st.session_state.lang_code = LANGUAGES[detected]
                 st.session_state.lang_selected = True
                 st.session_state.last_spoken_msg = ""
+                st.rerun()
 
-    # Initial Welcome Prompt if Language not yet selected
-    if not st.session_state.lang_selected:
-        speak_guaranteed("Please select your language. कृपया अपनी भाषा चुनें। অনুগ্রহ করে আপনার ভাষা নির্বাচন করুন।", "hi-IN")
+    # Dynamic Voice Navigation Prompt
+    lang_name = st.session_state.user_lang
+    l_code = st.session_state.lang_code
+    
+    if "Bengali" in lang_name:
+        guide = "আপনি বাংলা নির্বাচন করেছেন। এগিয়ে যাওয়ার জন্য অনুগ্রহ করে ৩ নম্বর ট্যাবে (Page 3: Voice Eligibility Portal) ক্লিক করুন।"
+    elif "Hindi" in lang_name:
+        guide = "आपने हिंदी चुनी है। आगे बढ़ने के लिए तीसरे टैब (Page 3: Voice Eligibility Portal) पर क्लिक करें।"
+    elif "Marathi" in lang_name:
+        guide = "तुम्ही मराठी निवडली आहे. पुढे जाण्यासाठी कृपया तिसऱ्या टॅबवर क्लिक करा."
+    elif "Gujarati" in lang_name:
+        guide = "તમે ગુજરાતી પસંદ કરી છે. આગળ વધવા માટે ત્રીજા ટેબ પર ક્લિક કરો."
     else:
-        lang_name = st.session_state.user_lang
-        l_code = st.session_state.lang_code
-        
-        if "Bengali" in lang_name:
-            guide = "আপনি বাংলা নির্বাচন করেছেন। এগিয়ে যাওয়ার জন্য অনুগ্রহ করে ৩ নম্বর ট্যাবে ক্লিক করুন।"
-        elif "Hindi" in lang_name:
-            guide = "आपने हिंदी चुनी है। आगे बढ़ने के लिए तीसरे टैब पर क्लिक करें।"
-        elif "Marathi" in lang_name:
-            guide = "तुम्ही मराठी निवडली आहे. पुढे जाण्यासाठी कृपया तिसऱ्या टॅबवर क्लिक करा."
-        elif "Gujarati" in lang_name:
-            guide = "તમે ગુજરાતી પસંદ કરી છે. આગળ વધવા માટે ત્રીજા ટેબ પર ક્લિક કરો."
-        else:
-            guide = f"You selected {lang_name}. Please click on Page 3 tab on top menu to proceed."
+        guide = f"You selected {lang_name}. Please click on Page 3 tab on top menu to proceed."
 
-        st.success(f"🗣️ **Voice Direction ({lang_name}):** {guide}")
-        speak_guaranteed(guide, l_code)
+    st.success(f"🗣️ **Voice Direction ({lang_name}):** {guide}")
+    speak_guaranteed(guide, l_code)
 
-        if st.button("🔄 Change Language / भाषा बदलें"):
-            st.session_state.lang_selected = False
-            st.session_state.last_spoken_msg = ""
-            st.rerun()
+    if st.button("🔄 Reset Language / ভাষা পরিবর্তন করুন"):
+        st.session_state.user_lang = "Bengali (বাংলা)"
+        st.session_state.lang_code = "bn-IN"
+        st.session_state.lang_selected = False
+        st.session_state.last_spoken_msg = ""
+        st.rerun()
 
 # --- PAGE 2: SCHEME DIRECTORY ---
 with tab2:
@@ -251,11 +279,11 @@ with tab3:
     col_fields, col_voice_nav = st.columns([2, 1])
 
     with col_fields:
-        st.session_state.form_name = st.text_input("1. Full Name / नाम:", value=st.session_state.form_name)
-        st.session_state.form_age = st.text_input("2. Age / उम्र:", value=st.session_state.form_age)
-        st.session_state.form_income = st.text_input("3. Annual Income (₹) / आय:", value=st.session_state.form_income)
+        st.session_state.form_name = st.text_input("1. Full Name / নাম:", value=st.session_state.form_name)
+        st.session_state.form_age = st.text_input("2. Age / उम्र / বয়স:", value=st.session_state.form_age)
+        st.session_state.form_income = st.text_input("3. Annual Income (₹) / आय / বার্ষিক আয়:", value=st.session_state.form_income)
         st.session_state.form_category = st.selectbox(
-            "4. Category / श्रेणी:",
+            "4. Category / শ্রেণী:",
             ["SC/ST", "Women Entrepreneur", "OBC / Minorities", "General"]
         )
 
