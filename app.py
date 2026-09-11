@@ -86,7 +86,6 @@ with tab3:
     st.header("Interactive Eligibility Portal")
     st.write("Enter your details below or use the assistant prompt.")
     
-    # Session state for user inputs
     if "user_name" not in st.session_state:
         st.session_state.user_name = ""
     if "user_category" not in st.session_state:
@@ -120,7 +119,7 @@ with tab4:
     if st.session_state.get("user_name"):
         st.success(f"🎉 **Congratulations {st.session_state.user_name}!** You are selected for top government schemes.")
         
-        # PDF Generator Function
+        # Fixed PDF Generator Function
         def generate_pdf(name, category):
             buffer = io.BytesIO()
             doc = SimpleDocTemplate(buffer, pagesize=letter)
@@ -128,7 +127,7 @@ with tab4:
             
             story = []
             story.append(Paragraph("<b>NATIONAL ELIGIBILITY TEST PORTAL</b>", styles['Title']))
-            story.append(Paragraph("Official Scheme Selection Certificate", styles['Subtitle']))
+            story.append(Paragraph("Official Scheme Selection Certificate", styles['Heading2']))
             story.append(Spacer(1, 15))
             
             info = f"<b>Applicant Name:</b> {name}<br/><b>Category:</b> {category}<br/><b>Status:</b> <font color='green'><b>SELECTED</b></font>"
