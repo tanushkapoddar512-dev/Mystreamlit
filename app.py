@@ -1,4 +1,4 @@
-import streamlit as st
+    import streamlit as st
 import streamlit.components.v1 as components
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -13,9 +13,16 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. Voice Output Engine (Text-to-Speech)
-def speak_voice(text, lang_code="hi-IN"):
-    js_code = f"""
+# 2. Session State Initialization
+if "lang_selected" not in st.session_state:
+    st.session_state.lang_selected = False
+if "user_lang" not in st.session_state:
+    st.session_state.user_lang = "English"
+
+# 3. Speech Utilities
+def speak_single(text, lang_code="en-IN"):
+    """Plays a single spoken audio prompt without looping."""
+    js = f"""
     <script>
         window.speechSynthesis.cancel();
         var msg = new SpeechSynthesisUtterance("{text}");
@@ -24,9 +31,64 @@ def speak_voice(text, lang_code="hi-IN"):
         window.speechSynthesis.speak(msg);
     </script>
     """
-    components.html(js_code, height=0, width=0)
+    components.html(js, height=0, width=0)
 
-# 3. Header Section: Indian Flag, Ashoka Chakra & State Emblem
+def start_language_loop():
+    """Loops bilingual request every 3 seconds until a language is chosen."""
+    js_loop = """
+    <script>
+        window.speechSynthesis.cancel();
+        
+        function playLoopPrompt() {
+            if (window.langSelected === true) return;
+            
+            window.speechSynthesis.cancel();
+            
+            var msgEn = new SpeechSynthesisUtterance("Please select your preferred language.");
+            msgEn.lang = "en-IN";
+            msgEn.rate = 0.9;
+            
+            var msgHi = new SpeechSynthesisUtterance("कृपया अपनी पसंदीदा भाषा चुनें।");
+            msgHi.lang = "hi-IN";
+            msgHi.rate = 0.9;
+            
+            window.speechSynthesis.speak(msgEn);
+            msgEn.onend = function() {
+                if (!window.langSelected) {
+                    window.speechSynthesis.speak(msgHi);
+                }
+            };
+        }
+
+        // Initial trigger
+        playLoopPrompt();
+        
+        // Loop every 3 seconds after speech finishes
+        if (!window.promptInterval) {
+            window.promptInterval = setInterval(function() {
+                if (!window.speechSynthesis.speaking && !window.langSelected) {
+                    playLoopPrompt();
+                }
+            }, 3000);
+        }
+    </script>
+    """
+    components.html(js_loop, height=0, width=0)
+
+def stop_language_loop():
+    """Stops the continuous looping prompt."""
+    js_stop = """
+    <script>
+        window.langSelected = true;
+        if (window.promptInterval) {
+            clearInterval(window.promptInterval);
+        }
+        window.speechSynthesis.cancel();
+    </script>
+    """
+    components.html(js_stop, height=0, width=0)
+
+# 4. Header & Emblem
 st.markdown("""
 <style>
     .flag-top { background-color: #FF9933; height: 14px; border-radius: 4px 4px 0 0; }
@@ -72,17 +134,7 @@ st.markdown("""
 
 st.divider()
 
-# Session State Setup
-if "visited" not in st.session_state:
-    st.session_state.visited = True
-    # Auto Voice Prompt on Load in English & Hindi
-    initial_prompt = "Welcome. Please select your language or tap the microphone to speak your language. कृपया अपनी भाषा का चयन करें या माइक दबाकर बोलें।"
-    speak_voice(initial_prompt, "hi-IN")
-
-if "selected_lang" not in st.session_state:
-    st.session_state.selected_lang = "Hindi (हिन्दी)"
-
-# 4. Navigation Tabs
+# 5. Page Tabs
 tab1, tab2, tab3, tab4 = st.tabs([
     "Page 1: Welcome & Navigation", 
     "Page 2: Scheme Directory", 
@@ -90,28 +142,31 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "Page 4: Download Notice"
 ])
 
-# --- PAGE 1: WELCOME & VOICE SPEECH RECOGNITION ---
+# --- PAGE 1: WELCOME & VOICE CONTROL ---
 with tab1:
-    st.header("Welcome & Interactive Voice Guide")
-    st.info("🗣️ **Auto Voice Assistant Active:** The portal automatically asks for your language and guides you through every step.")
-
-    col1, col2 = st.columns([2, 1])
+    st.header("Welcome Portal")
     
-    with col1:
-        lang_options = ["Hindi (हिन्दी)", "English", "Bengali (বাংলা)", "Tamil (தமிழ்)", "Marathi (मराठी)"]
-        selected = st.selectbox(
-            "Select Your Preferred Language / अपनी भाषा चुनें:",
-            lang_options,
-            index=lang_options.index(st.session_state.selected_lang)
-        )
-        st.session_state.selected_lang = selected
+    # Trigger 3-second loop if user hasn't confirmed language yet
+    if not st.session_state.lang_selected:
+        start_language_loop()
+        st.info("🔄 **Voice Assistant Loop Active:** Repeating *'Please select your preferred language / कृपया अपनी पसंदीदा भाषा चुनें'* every 3 seconds...")
 
-    with col2:
+    col_select, col_mic = st.columns([2, 1])
+
+    with col_select:
+        options = ["-- Choose Language --", "English", "Hindi (हिन्दी)"]
+        choice = st.selectbox("Select Language / भाषा चुनें:", options)
+
+        if choice != "-- Choose Language --":
+            st.session_state.user_lang = choice
+            st.session_state.lang_selected = True
+            stop_language_loop()
+
+    with col_mic:
         st.write("---")
         st.write("**Or Speak Your Language:**")
         
-        # HTML5 Microphone Speech Input Component
-        mic_component = """
+        mic_html = """
         <button onclick="startListening()" style="background-color:#FF9933; color:white; border:none; padding:10px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">
             🎤 Tap Mic & Say Language
         </button>
@@ -121,36 +176,56 @@ with tab1:
         function startListening() {
             var status = document.getElementById("speech_status");
             if (!('webkitSpeechRecognition' in window)) {
-                status.innerText = "Speech recognition not supported in this browser.";
+                status.innerText = "Speech recognition not supported in browser.";
                 return;
             }
             var recognition = new webkitSpeechRecognition();
-            recognition.lang = 'hi-IN';
+            recognition.lang = 'en-IN';
             recognition.interimResults = false;
-            recognition.onstart = function() { status.innerText = "Listening... Speak now!"; };
-            recognition.onresult = function(event) {
-                var transcript = event.results[0][0].transcript;
-                status.innerText = "You said: " + transcript;
-                window.parent.postMessage({type: 'streamlit:setComponentValue', value: transcript}, '*');
+            
+            recognition.onstart = function() { 
+                status.innerText = "Listening for 'English' or 'Hindi'..."; 
             };
-            recognition.onerror = function(event) { status.innerText = "Error listening. Please try again."; };
+            
+            recognition.onresult = function(event) {
+                var transcript = event.results[0][0].transcript.toLowerCase();
+                status.innerText = "You said: " + transcript;
+                
+                if (transcript.includes("hindi") || transcript.includes("हिन्दी")) {
+                    window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'Hindi'}, '*');
+                } else {
+                    window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'English'}, '*');
+                }
+            };
+            
             recognition.start();
         }
         </script>
         """
-        components.html(mic_component, height=80)
+        spoken_lang = components.html(mic_html, height=90)
+        
+        if spoken_lang:
+            if "hindi" in str(spoken_lang).lower():
+                st.session_state.user_lang = "Hindi (हिन्दी)"
+            else:
+                st.session_state.user_lang = "English"
+            st.session_state.lang_selected = True
+            stop_language_loop()
 
-    # Directional spoken guidance based on selected language
-    if "Hindi" in st.session_state.selected_lang:
-        guide_msg = "आपने हिंदी चुनी है। अब आगे बढ़ने के लिए ऊपर दिए गए तीसरे टैब Page 3 Eligibility Test पर क्लिक करें।"
-        st.success(f"🗣️ **Voice Direction:** {guide_msg}")
-        if st.button("🔊 Re-play Voice Navigation"):
-            speak_voice(guide_msg, "hi-IN")
-    else:
-        guide_msg = "You selected English. To proceed, please click on Page 3 Eligibility Test on the top menu bar."
-        st.success(f"🗣️ **Voice Direction:** {guide_msg}")
-        if st.button("🔊 Re-play Voice Navigation"):
-            speak_voice(guide_msg, "en-IN")
+    # Step-by-step voice guidance after selection
+    if st.session_state.lang_selected:
+        if "Hindi" in st.session_state.user_lang:
+            guide_text = "आपने हिंदी चुनी है। आगे बढ़ने के लिए ऊपर दिए गए तीसरे टैब Page 3 Eligibility Test पर क्लिक करें।"
+            st.success(f"🗣️ **Voice Navigation (Hindi):** {guide_text}")
+            speak_single(guide_text, "hi-IN")
+        else:
+            guide_text = "You have selected English. To proceed, please click on Page 3 Eligibility Test on the top menu bar."
+            st.success(f"🗣️ **Voice Navigation (English):** {guide_text}")
+            speak_single(guide_text, "en-IN")
+
+        if st.button("🔄 Reset Language Choice"):
+            st.session_state.lang_selected = False
+            st.rerun()
 
 # --- PAGE 2: SCHEME DIRECTORY ---
 with tab2:
@@ -171,20 +246,11 @@ with tab2:
 # --- PAGE 3: ELIGIBILITY TEST PORTAL ---
 with tab3:
     st.header("Interactive Eligibility Portal")
-    st.write("Follow the spoken directions to complete your eligibility check:")
     
     if "user_name" not in st.session_state:
         st.session_state.user_name = ""
 
-    col_input, col_mic = st.columns([3, 1])
-    with col_input:
-        st.session_state.user_name = st.text_input("Enter your name / अपना नाम दर्ज करें:", value=st.session_state.user_name)
-    with col_mic:
-        st.write("---")
-        if st.button("🎤 Voice Prompt"):
-            msg = "अपना नाम दर्ज करें, फिर नीचे Check Eligibility बटन पर क्लिक करें।"
-            st.info(f"🗣️ {msg}")
-            speak_voice(msg, "hi-IN")
+    st.session_state.user_name = st.text_input("Enter your name / अपना नाम दर्ज करें:", value=st.session_state.user_name)
 
     st.session_state.user_category = st.selectbox(
         "Select Category / श्रेणी चुनें:",
@@ -196,25 +262,28 @@ with tab3:
             st.session_state.eligible = True
             st.success(f"Selected for schemes! Selected candidate: {st.session_state.user_name}")
             
-            # Step-by-step turn-by-turn guidance
-            step_voice = f"बधाई हो {st.session_state.user_name}! आप पात्र हैं। अब अपना पीडीएफ प्रमाणपत्र डाउनलोड करने के लिए ऊपर दिए गए चौथे टैब Page 4 Download Notice पर जाएं।"
-            speak_voice(step_voice, "hi-IN")
-            st.info(f"🗣️ **Voice Navigation:** {step_voice}")
+            # Step-by-Step Guidance in the selected language
+            if "Hindi" in st.session_state.user_lang:
+                res_voice = f"बधाई हो {st.session_state.user_name}! आप पात्र हैं। अपना नोटिस डाउनलोड करने के लिए ऊपर दिए गए चौथे टैब Page 4 Download Notice पर जाएं।"
+                speak_single(res_voice, "hi-IN")
+            else:
+                res_voice = f"Congratulations {st.session_state.user_name}! You are eligible. Please click on Page 4 Download Notice on the top menu to get your certificate."
+                speak_single(res_voice, "en-IN")
         else:
-            err = "कृपया आगे बढ़ने के लिए पहले अपना नाम दर्ज करें।"
+            if "Hindi" in st.session_state.user_lang:
+                err = "कृपया आगे बढ़ने के लिए अपना नाम दर्ज करें।"
+                speak_single(err, "hi-IN")
+            else:
+                err = "Please enter your name to proceed."
+                speak_single(err, "en-IN")
             st.warning(err)
-            speak_voice(err, "hi-IN")
 
 # --- PAGE 4: RESULTS & PDF DOWNLOAD ---
 with tab4:
     st.header("Selection Results & Notice Download")
     
-    if st.session_state.get("user_name"):
+    if st.session_state.get("user_name") and st.session_state.get("eligible"):
         st.success(f"🎉 **Congratulations {st.session_state.user_name}!** You are selected for top government schemes.")
-        
-        dl_voice = "सर्टिफिकेट तैयार है। डाउनलोड करने के लिए लाल रंग के Download Official Notice PDF बटन पर क्लिक करें।"
-        speak_voice(dl_voice, "hi-IN")
-        st.info(f"🗣️ **Voice Navigation:** {dl_voice}")
         
         def generate_pdf(name, category):
             buffer = io.BytesIO()
@@ -259,6 +328,5 @@ with tab4:
             mime="application/pdf"
         )
     else:
-        no_rec = "कोई रिकॉर्ड नहीं मिला। पहले पेज 3 पर जाएं और अपनी पात्रता जांचें।"
-        st.warning(no_rec)
-        speak_voice(no_rec, "hi-IN")
+        st.warning("No record found. Please complete Page 3 first.")
+        
