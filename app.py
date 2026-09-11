@@ -1,6 +1,4 @@
-                
-                        
-            import streamlit as st
+import streamlit as st
 import streamlit.components.v1 as components
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
