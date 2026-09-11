@@ -13,15 +13,42 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. Session State Initialization
+# 2. Session State Setup
 if "lang_selected" not in st.session_state:
     st.session_state.lang_selected = False
 if "user_lang" not in st.session_state:
-    st.session_state.user_lang = "English"
+    st.session_state.user_lang = "Hindi (हिन्दी)"
+if "lang_code" not in st.session_state:
+    st.session_state.lang_code = "hi-IN"
+
+# Form field state
+if "form_name" not in st.session_state:
+    st.session_state.form_name = ""
+if "form_age" not in st.session_state:
+    st.session_state.form_age = ""
+if "form_income" not in st.session_state:
+    st.session_state.form_income = ""
+if "form_category" not in st.session_state:
+    st.session_state.form_category = "SC/ST"
+
+# Language Mapping Dictionary
+LANGUAGES = {
+    "Bengali (বাংলা)": "bn-IN",
+    "Hindi (हिन्दी)": "hi-IN",
+    "English": "en-IN",
+    "Marathi (मराठी)": "mr-IN",
+    "Gujarati (ગુજરાતી)": "gu-IN",
+    "Tamil (தமிழ்)": "ta-IN",
+    "Telugu (తెలుగు)": "te-IN",
+    "Kannada (ಕನ್ನಡ)": "kn-IN",
+    "Malayalam (മലയാളം)": "ml-IN",
+    "Odia (ଓଡ଼ିଆ)": "or-IN",
+    "Punjabi (ਪੰਜਾਬੀ)": "pa-IN"
+}
 
 # 3. Speech Utilities
-def speak_single(text, lang_code="en-IN"):
-    """Plays a single spoken audio prompt without looping."""
+def speak_single(text, lang_code="hi-IN"):
+    """Plays a single spoken audio prompt."""
     js = f"""
     <script>
         window.speechSynthesis.cancel();
@@ -34,7 +61,7 @@ def speak_single(text, lang_code="en-IN"):
     components.html(js, height=0, width=0)
 
 def start_language_loop():
-    """Loops bilingual request every 3 seconds until a language is chosen."""
+    """Loops multilingual prompt every 3 seconds until a language is chosen."""
     js_loop = """
     <script>
         window.speechSynthesis.cancel();
@@ -51,19 +78,26 @@ def start_language_loop():
             var msgHi = new SpeechSynthesisUtterance("कृपया अपनी पसंदीदा भाषा चुनें।");
             msgHi.lang = "hi-IN";
             msgHi.rate = 0.9;
+
+            var msgBn = new SpeechSynthesisUtterance("অনুগ্রহ করে আপনার পছন্দের ভাষা নির্বাচন করুন।");
+            msgBn.lang = "bn-IN";
+            msgBn.rate = 0.9;
             
             window.speechSynthesis.speak(msgEn);
             msgEn.onend = function() {
                 if (!window.langSelected) {
                     window.speechSynthesis.speak(msgHi);
+                    msgHi.onend = function() {
+                        if (!window.langSelected) {
+                            window.speechSynthesis.speak(msgBn);
+                        }
+                    }
                 }
             };
         }
 
-        // Initial trigger
         playLoopPrompt();
         
-        // Loop every 3 seconds after speech finishes
         if (!window.promptInterval) {
             window.promptInterval = setInterval(function() {
                 if (!window.speechSynthesis.speaking && !window.langSelected) {
@@ -128,7 +162,7 @@ st.markdown("""
     <br/>
     <span style="font-size: 14px; font-weight: bold; color: #555;">सत्यमेव जयते | Satyameva Jayate</span>
     <h1 style="margin-top: 5px; margin-bottom: 0px;">National Eligibility Test Portal</h1>
-    <p style="color: #666; font-weight: 500;">AI Scheme-Based Matching for Marginalized Entrepreneurs</p>
+    <p style="color: #666; font-weight: 500;">Rural & Marginalized Entrepreneur Welfare Scheme Portal</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -136,39 +170,39 @@ st.divider()
 
 # 5. Page Tabs
 tab1, tab2, tab3, tab4 = st.tabs([
-    "Page 1: Welcome & Navigation", 
+    "Page 1: Welcome & Language", 
     "Page 2: Scheme Directory", 
-    "Page 3: Eligibility Test", 
-    "Page 4: Download Notice"
+    "Page 3: Voice Eligibility Portal", 
+    "Page 4: Download Certificate"
 ])
 
-# --- PAGE 1: WELCOME & VOICE CONTROL ---
+# --- PAGE 1: WELCOME & MULTI-LANGUAGE SELECTION ---
 with tab1:
-    st.header("Welcome Portal")
+    st.header("Welcome Portal / স্বাগতম পোর্টাল")
     
-    # Trigger 3-second loop if user hasn't confirmed language yet
     if not st.session_state.lang_selected:
         start_language_loop()
-        st.info("🔄 **Voice Assistant Loop Active:** Repeating *'Please select your preferred language / कृपया अपनी पसंदीदा भाषा चुनें'* every 3 seconds...")
+        st.info("🔄 **Voice Loop Active:** Prompting language choice in English, Hindi, and Bengali every 3 seconds...")
 
     col_select, col_mic = st.columns([2, 1])
 
     with col_select:
-        options = ["-- Choose Language --", "English", "Hindi (हिन्दी)"]
-        choice = st.selectbox("Select Language / भाषा चुनें:", options)
+        options = ["-- Select Language / ভাষা নির্বাচন করুন --"] + list(LANGUAGES.keys())
+        choice = st.selectbox("Choose Language:", options)
 
-        if choice != "-- Choose Language --":
+        if choice != "-- Select Language / ভাষা নির্বাচন করুন --":
             st.session_state.user_lang = choice
+            st.session_state.lang_code = LANGUAGES[choice]
             st.session_state.lang_selected = True
             stop_language_loop()
 
     with col_mic:
         st.write("---")
-        st.write("**Or Speak Your Language:**")
+        st.write("**Or Speak Your Language / অথবা মুখে বলুন:**")
         
         mic_html = """
-        <button onclick="startListening()" style="background-color:#FF9933; color:white; border:none; padding:10px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">
-            🎤 Tap Mic & Say Language
+        <button onclick="startListening()" style="background-color:#FF9933; color:white; border:none; padding:12px 20px; border-radius:5px; font-weight:bold; cursor:pointer;">
+            🎤 Tap & Speak Language (e.g., Bengali, Marathi, Hindi)
         </button>
         <p id="speech_status" style="font-size:12px; color:#555; margin-top:5px;"></p>
         
@@ -176,66 +210,85 @@ with tab1:
         function startListening() {
             var status = document.getElementById("speech_status");
             if (!('webkitSpeechRecognition' in window)) {
-                status.innerText = "Speech recognition not supported in browser.";
+                status.innerText = "Speech recognition not supported on this browser.";
                 return;
             }
             var recognition = new webkitSpeechRecognition();
-            recognition.lang = 'en-IN';
+            recognition.lang = 'hi-IN';
             recognition.interimResults = false;
             
             recognition.onstart = function() { 
-                status.innerText = "Listening for 'English' or 'Hindi'..."; 
+                status.innerText = "Listening... Speak your language now!"; 
             };
             
             recognition.onresult = function(event) {
                 var transcript = event.results[0][0].transcript.toLowerCase();
-                status.innerText = "You said: " + transcript;
-                
-                if (transcript.includes("hindi") || transcript.includes("हिन्दी")) {
-                    window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'Hindi'}, '*');
-                } else {
-                    window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'English'}, '*');
-                }
+                status.innerText = "Recognized: " + transcript;
+                window.parent.postMessage({type: 'streamlit:setComponentValue', value: transcript}, '*');
             };
             
             recognition.start();
         }
         </script>
         """
-        spoken_lang = components.html(mic_html, height=90)
+        spoken_val = components.html(mic_html, height=100)
         
-        if spoken_lang:
-            if "hindi" in str(spoken_lang).lower():
-                st.session_state.user_lang = "Hindi (हिन्दी)"
+        if spoken_val:
+            val = str(spoken_val).lower()
+            matched_lang = None
+            
+            if "bengali" in val or "বাংলা" in val or "bangla" in val:
+                matched_lang = "Bengali (বাংলা)"
+            elif "marathi" in val or "मराठी" in val:
+                matched_lang = "Marathi (मराठी)"
+            elif "gujarati" in val or "ગુજરાતી" in val:
+                matched_lang = "Gujarati (ગૂજરાતી)"
+            elif "tamil" in val or "தமிழ்" in val:
+                matched_lang = "Tamil (தமிழ்)"
+            elif "telugu" in val or "తెలుగు" in val:
+                matched_lang = "Telugu (తెలుగు)"
+            elif "hindi" in val or "हिंदी" in val or "हिन्दी" in val:
+                matched_lang = "Hindi (हिन्दी)"
             else:
-                st.session_state.user_lang = "English"
+                matched_lang = "English"
+                
+            st.session_state.user_lang = matched_lang
+            st.session_state.lang_code = LANGUAGES[matched_lang]
             st.session_state.lang_selected = True
             stop_language_loop()
 
-    # Step-by-step voice guidance after selection
+    # Dynamic Post-Selection Guidance
     if st.session_state.lang_selected:
-        if "Hindi" in st.session_state.user_lang:
-            guide_text = "आपने हिंदी चुनी है। आगे बढ़ने के लिए ऊपर दिए गए तीसरे टैब Page 3 Eligibility Test पर क्लिक करें।"
-            st.success(f"🗣️ **Voice Navigation (Hindi):** {guide_text}")
-            speak_single(guide_text, "hi-IN")
+        lang_name = st.session_state.user_lang
+        l_code = st.session_state.lang_code
+        
+        if "Bengali" in lang_name:
+            guide = "আপনি বাংলা নির্বাচন করেছেন। এগিয়ে যাওয়ার জন্য অনুগ্রহ করে ওপরের ৩ নম্বর 'Page 3: Voice Eligibility Portal' ট্যাবে ক্লিক করুন।"
+        elif "Hindi" in lang_name:
+            guide = "आपने हिंदी चुनी है। आगे बढ़ने के लिए कृपया ऊपर दिए गए तीसरे टैब 'Page 3: Voice Eligibility Portal' पर क्लिक करें।"
+        elif "Marathi" in lang_name:
+            guide = "तुम्ही मराठी निवडली आहे. पुढे जाण्यासाठी कृपया वरील तिसऱ्या 'Page 3: Voice Eligibility Portal' टॅबवर क्लिक करा."
+        elif "Gujarati" in lang_name:
+            guide = "તમે ગુજરાતી પસંદ કરી છે. આગળ વધવા માટે કૃપા કરીને ઉપરના ત્રીજા 'Page 3: Voice Eligibility Portal' ટેબ પર ક્લિક કરો."
         else:
-            guide_text = "You have selected English. To proceed, please click on Page 3 Eligibility Test on the top menu bar."
-            st.success(f"🗣️ **Voice Navigation (English):** {guide_text}")
-            speak_single(guide_text, "en-IN")
+            guide = f"You have selected {lang_name}. Please click on 'Page 3: Voice Eligibility Portal' on the top menu to proceed."
 
-        if st.button("🔄 Reset Language Choice"):
+        st.success(f"🗣️ **Voice Navigation ({lang_name}):** {guide}")
+        speak_single(guide, l_code)
+
+        if st.button("🔄 Reset Language / ভাষা পরিবর্তন করুন"):
             st.session_state.lang_selected = False
             st.rerun()
 
 # --- PAGE 2: SCHEME DIRECTORY ---
 with tab2:
     st.header("Government Schemes Directory")
-    st.caption("Overview of key financial assistance schemes for micro-entrepreneurs:")
+    st.caption("Key welfare & micro-financing schemes available for rural entrepreneurs:")
     
     schemes = [
-        {"name": "Prime Minister's Employment Generation Programme (PMEGP)", "detail": "Credit-linked subsidy program providing up to 35% margin money for micro-enterprises."},
-        {"name": "Stand-Up India Scheme", "detail": "Bank loans between ₹10 Lakhs and ₹1 Crore for SC/ST and women entrepreneurs."},
-        {"name": "Pradhan Mantri MUDRA Yojana (PMMY)", "detail": "Collateral-free loans up to ₹10 Lakhs for non-farm micro-enterprises."}
+        {"name": "Prime Minister's Employment Generation Programme (PMEGP)", "detail": "Credit-linked subsidy program providing up to 35% margin money for rural micro-enterprises."},
+        {"name": "Stand-Up India Scheme", "detail": "Bank loans between ₹10 Lakhs and ₹1 Crore for SC/ST and rural women entrepreneurs."},
+        {"name": "Pradhan Mantri MUDRA Yojana (PMMY)", "detail": "Collateral-free loans up to ₹10 Lakhs for micro-businesses under Shishu, Kishore, and Tarun categories."}
     ]
     
     for s in schemes:
@@ -243,59 +296,124 @@ with tab2:
         st.write(s["detail"])
         st.divider()
 
-# --- PAGE 3: ELIGIBILITY TEST PORTAL ---
+# --- PAGE 3: VOICE-ASSISTED FORM FOR RURAL & ILLITERATE USERS ---
 with tab3:
-    st.header("Interactive Eligibility Portal")
-    
-    if "user_name" not in st.session_state:
-        st.session_state.user_name = ""
+    st.header("Voice-Guided Eligibility Entry / ভয়েস যোগ্যতা পরীক্ষা")
+    st.info("💡 **Voice Assistance Enabled:** Rural users can tap the microphone button below to complete their details via voice prompt.")
 
-    st.session_state.user_name = st.text_input("Enter your name / अपना नाम दर्ज करें:", value=st.session_state.user_name)
+    col_fields, col_voice_nav = st.columns([2, 1])
 
-    st.session_state.user_category = st.selectbox(
-        "Select Category / श्रेणी चुनें:",
-        ["SC/ST", "Women Entrepreneur", "OBC / Minorities", "General"]
-    )
-    
-    if st.button("Check Eligibility"):
-        if st.session_state.user_name:
-            st.session_state.eligible = True
-            st.success(f"Selected for schemes! Selected candidate: {st.session_state.user_name}")
-            
-            # Step-by-Step Guidance in the selected language
-            if "Hindi" in st.session_state.user_lang:
-                res_voice = f"बधाई हो {st.session_state.user_name}! आप पात्र हैं। अपना नोटिस डाउनलोड करने के लिए ऊपर दिए गए चौथे टैब Page 4 Download Notice पर जाएं।"
-                speak_single(res_voice, "hi-IN")
-            else:
-                res_voice = f"Congratulations {st.session_state.user_name}! You are eligible. Please click on Page 4 Download Notice on the top menu to get your certificate."
-                speak_single(res_voice, "en-IN")
-        else:
-            if "Hindi" in st.session_state.user_lang:
-                err = "कृपया आगे बढ़ने के लिए अपना नाम दर्ज करें।"
-                speak_single(err, "hi-IN")
-            else:
-                err = "Please enter your name to proceed."
-                speak_single(err, "en-IN")
-            st.warning(err)
+    with col_fields:
+        st.session_state.form_name = st.text_input("1. Full Name / নাম:", value=st.session_state.form_name)
+        st.session_state.form_age = st.text_input("2. Age / বয়স:", value=st.session_state.form_age)
+        st.session_state.form_income = st.text_input("3. Annual Income (₹) / বার্ষিক আয়:", value=st.session_state.form_income)
+        st.session_state.form_category = st.selectbox(
+            "4. Category / শ্রেণী:",
+            ["SC/ST", "Women Entrepreneur", "OBC / Minorities", "General"],
+            index=0
+        )
 
-# --- PAGE 4: RESULTS & PDF DOWNLOAD ---
-with tab4:
-    st.header("Selection Results & Notice Download")
-    
-    if st.session_state.get("user_name") and st.session_state.get("eligible"):
-        st.success(f"🎉 **Congratulations {st.session_state.user_name}!** You are selected for top government schemes.")
+    with col_voice_nav:
+        st.write("---")
+        st.write("**Voice Fill Assistant:**")
         
-        def generate_pdf(name, category):
+        # Automatic Voice Field Prompter JavaScript
+        guided_mic_html = f"""
+        <button onclick="startFormAssistant()" style="background-color:#138808; color:white; border:none; padding:12px 18px; border-radius:5px; font-weight:bold; cursor:pointer;">
+            🎤 Tap for Guided Voice Assistant
+        </button>
+        <p id="form_status" style="font-size:13px; color:#333; margin-top:8px; font-weight:500;"></p>
+
+        <script>
+        function startFormAssistant() {{
+            var status = document.getElementById("form_status");
+            if (!('webkitSpeechRecognition' in window)) {{
+                status.innerText = "Speech recognition not supported.";
+                return;
+            }}
+
+            var lCode = "{st.session_state.lang_code}";
+            var rec = new webkitSpeechRecognition();
+            rec.lang = lCode;
+            rec.interimResults = false;
+
+            // Step 1: Prompt Name
+            var msg1 = new SpeechSynthesisUtterance("Please speak your full name after the sound.");
+            if (lCode.includes("bn")) msg1.text = "অনুগ্রহ করে আপনার নাম বলুন।";
+            else if (lCode.includes("hi")) msg1.text = "कृपया अपना पूरा नाम बोलें।";
+            msg1.lang = lCode;
+
+            window.speechSynthesis.speak(msg1);
+
+            msg1.onend = function() {{
+                status.innerText = "Listening for Name... (pause to finish)";
+                rec.start();
+            }};
+
+            rec.onresult = function(e) {{
+                var spoken = e.results[0][0].transcript;
+                status.innerText = "Recorded: " + spoken;
+                window.parent.postMessage({{type: 'streamlit:setComponentValue', value: spoken}}, '*');
+            }};
+        }}
+        </script>
+        """
+        voice_input_result = components.html(guided_mic_html, height=120)
+        
+        if voice_input_result:
+            st.session_state.form_name = str(voice_input_result)
+
+    st.divider()
+
+    if st.button("Check Scheme Eligibility / पात्रता जांचें"):
+        if st.session_state.form_name:
+            st.session_state.eligible = True
+            st.success(f"🎉 Eligibility Verified for candidate: **{st.session_state.form_name}**")
+            
+            l_code = st.session_state.lang_code
+            if "bn" in l_code:
+                resp = f"অভিনন্দন {st.session_state.form_name}! আপনি সরকারি স্কিমের জন্য নির্বাচিত হয়েছেন। আপনার অফিশিয়াল সার্টিফিকেট ডাউনলোড করতে ৪ নম্বর ট্যাবে ক্লিক করুন।"
+            elif "hi" in l_code:
+                resp = f"बधाई हो {st.session_state.form_name}! आप सरकारी योजनाओं के लिए पात्र हैं। अपना प्रमाण पत्र डाउनलोड करने के लिए चौथे टैब पर जाएं।"
+            else:
+                resp = f"Congratulations {st.session_state.form_name}! You are eligible for government schemes. Please click on Page 4 to download your certificate."
+
+            speak_single(resp, l_code)
+            st.info(f"🗣️ **Voice Navigation:** {resp}")
+        else:
+            err = "Please enter or speak your name first."
+            st.warning(err)
+            speak_single(err, st.session_state.lang_code)
+
+# --- PAGE 4: RESULTS & PDF CERTIFICATE DOWNLOAD ---
+with tab4:
+    st.header("Selection Certificate Download")
+    
+    if st.session_state.get("form_name") and st.session_state.get("eligible"):
+        st.success(f"🎉 **Selection Verified:** {st.session_state.form_name}")
+        
+        l_code = st.session_state.lang_code
+        if "bn" in l_code:
+            dl_prompt = "আপনার সার্টিফিকেট প্রস্তুত। ডাউনলোড করতে নিচের ডাউনলোড বাটনে ক্লিক করুন।"
+        elif "hi" in l_code:
+            dl_prompt = "आपका प्रमाण पत्र तैयार है। डाउनलोड करने के लिए नीचे दिए गए बटन पर क्लिक करें।"
+        else:
+            dl_prompt = "Your certificate is ready. Click the download button below to save your official notice."
+
+        speak_single(dl_prompt, l_code)
+        st.info(f"🗣️ **Voice Direction:** {dl_prompt}")
+
+        def generate_pdf(name, age, income, category):
             buffer = io.BytesIO()
             doc = SimpleDocTemplate(buffer, pagesize=letter)
             styles = getSampleStyleSheet()
             
             story = []
             story.append(Paragraph("<b>NATIONAL ELIGIBILITY TEST PORTAL</b>", styles['Title']))
-            story.append(Paragraph("Official Scheme Selection Certificate", styles['Heading2']))
+            story.append(Paragraph("Official Scheme Selection Certificate for Rural Entrepreneurs", styles['Heading2']))
             story.append(Spacer(1, 15))
             
-            info = f"<b>Applicant Name:</b> {name}<br/><b>Category:</b> {category}<br/><b>Status:</b> <font color='green'><b>SELECTED</b></font>"
+            info = f"<b>Applicant Name:</b> {name}<br/><b>Age:</b> {age}<br/><b>Income:</b> ₹{income}<br/><b>Category:</b> {category}<br/><b>Status:</b> <font color='green'><b>SELECTED</b></font>"
             story.append(Paragraph(info, styles['Normal']))
             story.append(Spacer(1, 15))
             
@@ -319,12 +437,17 @@ with tab4:
             buffer.seek(0)
             return buffer
 
-        pdf_file = generate_pdf(st.session_state.user_name, st.session_state.user_category)
+        pdf_file = generate_pdf(
+            st.session_state.form_name, 
+            st.session_state.form_age, 
+            st.session_state.form_income, 
+            st.session_state.form_category
+        )
         
         st.download_button(
             label="📄 Download Official Notice PDF",
             data=pdf_file,
-            file_name=f"Selection_Notice_{st.session_state.user_name}.pdf",
+            file_name=f"Selection_Notice_{st.session_state.form_name}.pdf",
             mime="application/pdf"
         )
     else:
