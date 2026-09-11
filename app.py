@@ -25,7 +25,7 @@ st.markdown("""
 <div class="flag-bot"></div>
 """, unsafe_allow_html=True)
 
-st.markdown("<div class="emblem-title">", unsafe_allow_html=True)
+st.markdown("<div class='emblem-title'>", unsafe_allow_html=True)
 st.caption("सत्यमेव जयते | Satyameva Jayate")
 st.title("National Eligibility Test Portal")
 st.write("**AI Scheme-Based Matching for Marginalized Entrepreneurs**")
@@ -166,4 +166,3 @@ with tab4:
     else:
         st.warning("No eligibility record found. Please complete the Eligibility Test on Page 3 first.")
         
-  
