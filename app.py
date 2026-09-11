@@ -17,13 +17,11 @@ st.set_page_config(
 if "lang_selected" not in st.session_state:
     st.session_state.lang_selected = False
 if "user_lang" not in st.session_state:
-    st.session_state.user_lang = "Bengali (বাংলা)"
+    st.session_state.user_lang = "-- Select Language / ভাষা নির্বাচন করুন --"
 if "lang_code" not in st.session_state:
-    st.session_state.lang_code = "bn-IN"
-if "last_spoken_msg" not in st.session_state:
-    st.session_state.last_spoken_msg = ""
+    st.session_state.lang_code = "hi-IN"
 
-# Form state
+# Form field state
 if "form_name" not in st.session_state:
     st.session_state.form_name = ""
 if "form_age" not in st.session_state:
@@ -33,7 +31,7 @@ if "form_income" not in st.session_state:
 if "form_category" not in st.session_state:
     st.session_state.form_category = "SC/ST"
 
-# Language Mapping Dictionary
+# Supported Indian Languages Dictionary
 LANGUAGES = {
     "Bengali (বাংলা)": "bn-IN",
     "Hindi (हिन्दी)": "hi-IN",
@@ -42,119 +40,77 @@ LANGUAGES = {
     "Gujarati (ગુજરાતી)": "gu-IN",
     "Tamil (தமிழ்)": "ta-IN",
     "Telugu (తెలుగు)": "te-IN",
-    "Kannada (કನ್ನಡ)": "kn-IN",
+    "Kannada (ಕನ್ನಡ)": "kn-IN",
     "Malayalam (മലയാളം)": "ml-IN",
     "Odia (ଓଡ଼ିଆ)": "or-IN",
     "Punjabi (ਪੰਜਾਬੀ)": "pa-IN"
 }
 
-# 3. Controlled Speech Engine
-def speak_guaranteed(text, lang_code="bn-IN"):
-    """Cancels any ongoing speech queue before speaking new text."""
-    if st.session_state.last_spoken_msg != text:
-        st.session_state.last_spoken_msg = text
-        js_code = f"""
-        <script>
-            if ('speechSynthesis' in window) {{
-                window.speechSynthesis.cancel();
-                setTimeout(function() {{
-                    var msg = new SpeechSynthesisUtterance("{text}");
-                    msg.lang = "{lang_code}";
-                    msg.rate = 0.85;
-                    window.speechSynthesis.speak(msg);
-                }}, 200);
-            }}
-        </script>
-        """
-        components.html(js_code, height=0, width=0)
+# 3. Controlled Voice Guidance Function
+def speak_text(text, lang_code="hi-IN"):
+    """Executes clean speech synthesis in client browser."""
+    js = f"""
+    <script>
+        if ('speechSynthesis' in window) {{
+            window.speechSynthesis.cancel();
+            setTimeout(function() {{
+                var msg = new SpeechSynthesisUtterance("{text}");
+                msg.lang = "{lang_code}";
+                msg.rate = 0.85;
+                window.speechSynthesis.speak(msg);
+            }}, 100);
+        }}
+    </script>
+    """
+    components.html(js, height=0, width=0)
 
-# Helper function to match transcribed text across languages & scripts
-def detect_language_from_speech(spoken_text):
+def detect_language(spoken_text):
     val = spoken_text.lower()
-    
-    # Bengali phonetic & script variations
-    if any(k in val for k in ["bengali", "bangla", "বাংলা", "बांग्ला", "বংগ"]):
+    if any(k in val for k in ["bengali", "bangla", "বাংলা", "बांग्ला"]):
         return "Bengali (বাংলা)"
-    # Hindi
     elif any(k in val for k in ["hindi", "हिंदी", "हिन्दी"]):
         return "Hindi (हिन्दी)"
-    # Marathi
     elif any(k in val for k in ["marathi", "मराठी"]):
         return "Marathi (मराठी)"
-    # Gujarati
-    elif any(k in val for k in ["gujarati", "ગુજરાતી", "गुजराती"]):
+    elif any(k in val for k in ["gujarati", "ગુજરાતી"]):
         return "Gujarati (ગુજરાતી)"
-    # Tamil
-    elif any(k in val for k in ["tamil", "தமிழ்", "तमिल"]):
+    elif any(k in val for k in ["tamil", "தமிழ்"]):
         return "Tamil (தமிழ்)"
-    # Telugu
-    elif any(k in val for k in ["telugu", "తెలుగు", "तेलुगु"]):
+    elif any(k in val for k in ["telugu", "తెలుగు"]):
         return "Telugu (తెలుగు)"
-    # Kannada
-    elif any(k in val for k in ["kannada", "કನ್ನಡ", "कन्नड़"]):
-        return "Kannada (કನ್ನಡ)"
-    # Malayalam
-    elif any(k in val for k in ["malayalam", "മലയാളം", "मलयालम"]):
-        return "Malayalam (മലയാളം)"
-    # Odia
-    elif any(k in val for k in ["odia", "oriya", "ଓଡ଼ିଆ", "उड़िया"]):
-        return "Odia (ଓଡ଼ିଆ)"
-    # Punjabi
-    elif any(k in val for k in ["punjabi", "ਪੰਜਾਬੀ", "पंजाबी"]):
-        return "Punjabi (ਪੰਜਾਬੀ)"
-    # English default
-    elif "english" in val or "अंग्रेजी" in val or "ইংরেজি" in val:
+    elif "english" in val:
         return "English"
-    
     return None
 
-# 4. Header & Emblem
+# 4. Portal Header & Emblem
 st.markdown("""
 <style>
-    .flag-top { background-color: #FF9933; height: 14px; border-radius: 4px 4px 0 0; }
-    .flag-mid { 
-        background-color: #FFFFFF; 
-        height: 20px; 
-        display: flex; 
-        align-items: center; 
-        justify-content: center; 
-    }
-    .flag-bot { background-color: #138808; height: 14px; border-radius: 0 0 4px 4px; }
-    .emblem-container { text-align: center; margin-top: 15px; margin-bottom: 10px; }
-    .emblem-img { width: 75px; height: auto; }
+    .flag-top { background-color: #FF9933; height: 12px; border-radius: 4px 4px 0 0; }
+    .flag-mid { background-color: #FFFFFF; height: 16px; display: flex; align-items: center; justify-content: center; }
+    .flag-bot { background-color: #138808; height: 12px; border-radius: 0 0 4px 4px; }
+    .emblem-container { text-align: center; margin-top: 10px; margin-bottom: 10px; }
+    .emblem-img { width: 65px; height: auto; }
 </style>
 
 <div class="flag-top"></div>
 <div class="flag-mid">
-    <svg width="18" height="18" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <svg width="16" height="16" viewBox="0 0 100 100">
         <circle cx="50" cy="50" r="45" fill="none" stroke="#000080" stroke-width="6"/>
         <circle cx="50" cy="50" r="8" fill="#000080"/>
-        <g stroke="#000080" stroke-width="3">
-            <line x1="50" y1="50" x2="50" y2="5"/><line x1="50" y1="50" x2="50" y2="95"/>
-            <line x1="50" y1="50" x2="5" y2="50"/><line x1="50" y1="50" x2="95" y2="50"/>
-            <line x1="50" y1="50" x2="18" y2="18"/><line x1="50" y1="50" x2="82" y2="82"/>
-            <line x1="50" y1="50" x2="18" y2="82"/><line x1="50" y1="50" x2="82" y2="18"/>
-            <line x1="50" y1="50" x2="33" y2="9"/><line x1="50" y1="50" x2="67" y2="91"/>
-            <line x1="50" y1="50" x2="9" y2="33"/><line x1="50" y1="50" x2="91" y2="67"/>
-            <line x1="50" y1="50" x2="9" y2="67"/><line x1="50" y1="50" x2="91" y2="33"/>
-            <line x1="50" y1="50" x2="33" y2="91"/><line x1="50" y1="50" x2="67" y2="9"/>
-        </g>
     </svg>
 </div>
 <div class="flag-bot"></div>
 
 <div class="emblem-container">
-    <img class="emblem-img" src="https://upload.wikimedia.org/wikipedia/commons/7/77/Emblem_of_India.svg" alt="State Emblem of India">
-    <br/>
-    <span style="font-size: 14px; font-weight: bold; color: #555;">सत्यमेव जयते | Satyameva Jayate</span>
-    <h1 style="margin-top: 5px; margin-bottom: 0px;">National Eligibility Test Portal</h1>
-    <p style="color: #666; font-weight: 500;">Rural & Marginalized Entrepreneur Welfare Scheme Portal</p>
+    <img class="emblem-img" src="https://upload.wikimedia.org/wikipedia/commons/7/77/Emblem_of_India.svg" alt="Emblem">
+    <h2 style="margin: 5px 0 0 0;">National Eligibility Test Portal</h2>
+    <p style="color: #555; margin:0;">Rural & Marginalized Entrepreneur Welfare Scheme Portal</p>
 </div>
 """, unsafe_allow_html=True)
 
 st.divider()
 
-# 5. Page Tabs
+# 5. Page Navigation Tabs
 tab1, tab2, tab3, tab4 = st.tabs([
     "Page 1: Welcome & Language", 
     "Page 2: Scheme Directory", 
@@ -162,167 +118,188 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "Page 4: Download Certificate"
 ])
 
-# --- PAGE 1: WELCOME & STABLE LANGUAGE SELECTION ---
+# --- PAGE 1: WELCOME & MULTILINGUAL VOICE LOOP ---
 with tab1:
     st.header("Welcome Portal / স্বাগতম পোর্টাল")
 
-    col_select, col_mic = st.columns([2, 1])
+    # If language not chosen yet, loop welcoming speech in multiple Indian languages
+    if not st.session_state.lang_selected:
+        loop_js = """
+        <script>
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                
+                var prompts = [
+                    {text: "Please select your language.", lang: "en-IN"},
+                    {text: "कृपया अपनी भाषा चुनें।", lang: "hi-IN"},
+                    {text: "অনুগ্রহ করে আপনার ভাষা নির্বাচন করুন।", lang: "bn-IN"},
+                    {text: "कृपया तुमची भाषा निवडा.", lang: "mr-IN"},
+                    {text: "કૃપા કરીને તમારી ભાષા પસંદ કરો.", lang: "gu-IN"}
+                ];
+                
+                var idx = 0;
+                function cycleSpeech() {
+                    if (window.speechSynthesis.speaking) return;
+                    var p = prompts[idx];
+                    var u = new SpeechSynthesisUtterance(p.text);
+                    u.lang = p.lang;
+                    u.rate = 0.85;
+                    u.onend = function() {
+                        idx = (idx + 1) % prompts.length;
+                        setTimeout(cycleSpeech, 1500);
+                    };
+                    window.speechSynthesis.speak(u);
+                }
+                cycleSpeech();
+            }
+        </script>
+        """
+        components.html(loop_js, height=0, width=0)
+        st.info("🔄 **Voice Assistant Active:** Looping language choice prompt across Indian languages...")
 
-    with col_select:
-        options = list(LANGUAGES.keys())
-        # Automatically select index based on state
-        default_idx = options.index(st.session_state.user_lang) if st.session_state.user_lang in options else 0
-        choice = st.selectbox("Choose Language / ভাষা নির্বাচন করুন:", options, index=default_idx)
+    col1, col2 = st.columns([2, 1])
 
-        if choice != st.session_state.user_lang:
-            st.session_state.user_lang = choice
-            st.session_state.lang_code = LANGUAGES[choice]
+    with col1:
+        options = ["-- Select Language / ভাষা নির্বাচন করুন --"] + list(LANGUAGES.keys())
+        selected = st.selectbox("Choose Language:", options)
+
+        if selected != "-- Select Language / ভাষা নির্বাচন করুন --" and selected != st.session_state.user_lang:
+            st.session_state.user_lang = selected
+            st.session_state.lang_code = LANGUAGES[selected]
             st.session_state.lang_selected = True
-            st.session_state.last_spoken_msg = ""
             st.rerun()
 
-    with col_mic:
+    with col2:
         st.write("---")
-        st.write("**Or Speak Language / মুখে বলুন:**")
+        st.write("**Or Speak Language:**")
         
-        mic_html = """
-        <button onclick="startListening()" style="background-color:#FF9933; color:white; border:none; padding:12px 20px; border-radius:5px; font-weight:bold; cursor:pointer;">
+        mic_js = """
+        <button onclick="listenLang()" style="background-color:#FF9933; color:white; border:none; padding:10px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">
             🎤 Tap & Speak Language
         </button>
-        <p id="speech_status" style="font-size:12px; color:#555; margin-top:5px;"></p>
-        
+        <p id="mic_out" style="font-size:12px; color:#555; margin-top:4px;"></p>
+
         <script>
-        function startListening() {
-            var status = document.getElementById("speech_status");
-            if (!('webkitSpeechRecognition' in window)) {
-                status.innerText = "Speech recognition not supported.";
-                return;
-            }
+        function listenLang() {
+            if (!('webkitSpeechRecognition' in window)) return;
             window.speechSynthesis.cancel();
-            var recognition = new webkitSpeechRecognition();
-            recognition.lang = 'hi-IN'; // Multi-script capturing mode
-            recognition.interimResults = false;
-            
-            recognition.onstart = function() { 
-                status.innerText = "Listening... Speak language name now!"; 
+            var rec = new webkitSpeechRecognition();
+            rec.lang = 'hi-IN';
+            rec.onstart = function() { document.getElementById("mic_out").innerText = "Listening..."; };
+            rec.onresult = function(e) {
+                var text = e.results[0][0].transcript;
+                document.getElementById("mic_out").innerText = "Spoken: " + text;
+                const url = new URL(window.location.href);
+                url.searchParams.set('spoken_lang', text);
+                window.location.href = url.href;
             };
-            
-            recognition.onresult = function(event) {
-                var transcript = event.results[0][0].transcript.toLowerCase();
-                status.innerText = "Recognized: " + transcript;
-                window.parent.postMessage({type: 'streamlit:setComponentValue', value: transcript}, '*');
-            };
-            
-            recognition.start();
+            rec.start();
         }
         </script>
         """
-        spoken_val = components.html(mic_html, height=100)
-        
-        if spoken_val:
-            detected = detect_language_from_speech(str(spoken_val))
-            if detected and detected != st.session_state.user_lang:
-                st.session_state.user_lang = detected
-                st.session_state.lang_code = LANGUAGES[detected]
+        components.html(mic_js, height=80)
+
+        # Process URL parameters if speech detected language
+        query_params = st.query_params
+        if "spoken_lang" in query_params:
+            spoken_val = query_params["spoken_lang"]
+            matched = detect_language(spoken_val)
+            if matched:
+                st.session_state.user_lang = matched
+                st.session_state.lang_code = LANGUAGES[matched]
                 st.session_state.lang_selected = True
-                st.session_state.last_spoken_msg = ""
+                st.query_params.clear()
                 st.rerun()
 
-    # Dynamic Voice Navigation Prompt
-    lang_name = st.session_state.user_lang
-    l_code = st.session_state.lang_code
-    
-    if "Bengali" in lang_name:
-        guide = "আপনি বাংলা নির্বাচন করেছেন। এগিয়ে যাওয়ার জন্য অনুগ্রহ করে ৩ নম্বর ট্যাবে (Page 3: Voice Eligibility Portal) ক্লিক করুন।"
-    elif "Hindi" in lang_name:
-        guide = "आपने हिंदी चुनी है। आगे बढ़ने के लिए तीसरे टैब (Page 3: Voice Eligibility Portal) पर क्लिक करें।"
-    elif "Marathi" in lang_name:
-        guide = "तुम्ही मराठी निवडली आहे. पुढे जाण्यासाठी कृपया तिसऱ्या टॅबवर क्लिक करा."
-    elif "Gujarati" in lang_name:
-        guide = "તમે ગુજરાતી પસંદ કરી છે. આગળ વધવા માટે ત્રીજા ટેબ પર ક્લિક કરો."
-    else:
-        guide = f"You selected {lang_name}. Please click on Page 3 tab on top menu to proceed."
+    # Guidance once language is locked
+    if st.session_state.lang_selected:
+        lang_name = st.session_state.user_lang
+        l_code = st.session_state.lang_code
+        
+        if "Bengali" in lang_name:
+            guide_text = "আপনি বাংলা নির্বাচন করেছেন। এগিয়ে যাওয়ার জন্য অনুগ্রহ করে ৩ নম্বর ট্যাবে (Page 3) যান।"
+        elif "Hindi" in lang_name:
+            guide_text = "आपने हिंदी चुनी है। आगे बढ़ने के लिए कृपया तीसरे टैब (Page 3) पर जाएं।"
+        elif "Marathi" in lang_name:
+            guide_text = "तुम्ही मराठी निवडली आहे. पुढे जाण्यासाठी कृपया तिसऱ्या टॅबवर क्लिक करा."
+        elif "Gujarati" in lang_name:
+            guide_text = "તમે ગુજરાતી પસંદ કરી છે. આગળ વધવા માટે ત્રીજા ટેબ પર ક્લિક કરો."
+        else:
+            guide_text = f"You selected {lang_name}. Please click on Page 3 tab to proceed."
 
-    st.success(f"🗣️ **Voice Direction ({lang_name}):** {guide}")
-    speak_guaranteed(guide, l_code)
+        st.success(f"🗣️ **Voice Navigation ({lang_name}):** {guide_text}")
+        speak_text(guide_text, l_code)
 
-    if st.button("🔄 Reset Language / ভাষা পরিবর্তন করুন"):
-        st.session_state.user_lang = "Bengali (বাংলা)"
-        st.session_state.lang_code = "bn-IN"
-        st.session_state.lang_selected = False
-        st.session_state.last_spoken_msg = ""
-        st.rerun()
+        if st.button("🔄 Reset Language Choice"):
+            st.session_state.lang_selected = False
+            st.session_state.user_lang = "-- Select Language / ভাষা নির্বাচন করুন --"
+            st.rerun()
 
 # --- PAGE 2: SCHEME DIRECTORY ---
 with tab2:
     st.header("Government Schemes Directory")
-    st.caption("Key welfare & micro-financing schemes available for rural entrepreneurs:")
-    
-    schemes = [
-        {"name": "Prime Minister's Employment Generation Programme (PMEGP)", "detail": "Credit-linked subsidy program providing up to 35% margin money for rural micro-enterprises."},
-        {"name": "Stand-Up India Scheme", "detail": "Bank loans between ₹10 Lakhs and ₹1 Crore for SC/ST and rural women entrepreneurs."},
-        {"name": "Pradhan Mantri MUDRA Yojana (PMMY)", "detail": "Collateral-free loans up to ₹10 Lakhs for micro-businesses."}
-    ]
-    
-    for s in schemes:
-        st.subheader(s["name"])
-        st.write(s["detail"])
-        st.divider()
+    st.write("• **PMEGP:** Up to 35% margin money subsidy for rural micro-enterprises.")
+    st.write("• **Stand-Up India:** Bank loans from ₹10 Lakhs to ₹1 Crore for SC/ST and rural women entrepreneurs.")
+    st.write("• **MUDRA Yojana:** Collateral-free micro-loans up to ₹10 Lakhs.")
 
-# --- PAGE 3: VOICE-ASSISTED FORM FOR RURAL USERS ---
+# --- PAGE 3: VOICE ELIGIBILITY PORTAL FOR RURAL USERS ---
 with tab3:
-    st.header("Voice-Guided Eligibility Entry")
-    st.info("💡 Tap the button below to fill details using your voice.")
+    st.header("Voice-Guided Form Entry")
+    st.info("💡 **Voice Assistance Active:** Click the microphone icon next to any field or speak your input.")
 
-    col_fields, col_voice_nav = st.columns([2, 1])
+    # URL query param handling for pure text injection (Fixes DeltaGenerator bug)
+    qp = st.query_params
+    if "voice_field_name" in qp:
+        st.session_state.form_name = qp["voice_field_name"]
+        st.query_params.clear()
 
-    with col_fields:
-        st.session_state.form_name = st.text_input("1. Full Name / নাম:", value=st.session_state.form_name)
-        st.session_state.form_age = st.text_input("2. Age / उम्र / বয়স:", value=st.session_state.form_age)
-        st.session_state.form_income = st.text_input("3. Annual Income (₹) / आय / বার্ষিক আয়:", value=st.session_state.form_income)
-        st.session_state.form_category = st.selectbox(
-            "4. Category / শ্রেণী:",
-            ["SC/ST", "Women Entrepreneur", "OBC / Minorities", "General"]
-        )
+    # Manual / Text inputs
+    st.session_state.form_name = st.text_input("1. Full Name / নাম:", value=st.session_state.form_name)
+    st.session_state.form_age = st.text_input("2. Age / বয়স / उम्र:", value=st.session_state.form_age)
+    st.session_state.form_income = st.text_input("3. Annual Income (₹) / বার্ষিক আয়:", value=st.session_state.form_income)
+    st.session_state.form_category = st.selectbox("4. Category / শ্রেণী:", ["SC/ST", "Women Entrepreneur", "OBC / Minorities", "General"])
 
-    with col_voice_nav:
-        st.write("---")
-        st.write("**Voice Fill Assistant:**")
+    st.write("---")
+    st.subheader("🎤 Voice Input Assistant")
+
+    voice_fill_js = f"""
+    <button onclick="startVoiceFill()" style="background-color:#138808; color:white; border:none; padding:12px 20px; border-radius:5px; font-weight:bold; cursor:pointer;">
+        🎤 Speak Full Name Now
+    </button>
+    <p id="fill_status" style="font-size:13px; color:#333; margin-top:5px;"></p>
+
+    <script>
+    function startVoiceFill() {{
+        if (!('webkitSpeechRecognition' in window)) return;
+        window.speechSynthesis.cancel();
         
-        guided_mic_html = f"""
-        <button onclick="startFormAssistant()" style="background-color:#138808; color:white; border:none; padding:12px 18px; border-radius:5px; font-weight:bold; cursor:pointer;">
-            🎤 Speak Name
-        </button>
-        <p id="form_status" style="font-size:13px; color:#333; margin-top:8px;"></p>
+        var lCode = "{st.session_state.lang_code}";
+        var rec = new webkitSpeechRecognition();
+        rec.lang = lCode;
+        
+        var msg = new SpeechSynthesisUtterance("Please speak your name after the sound.");
+        if (lCode.includes("bn")) msg.text = "অনুগ্রহ করে আপনার নাম বলুন।";
+        else if (lCode.includes("hi")) msg.text = "कृपया अपना नाम बोलें।";
+        msg.lang = lCode;
 
-        <script>
-        function startFormAssistant() {{
-            var status = document.getElementById("form_status");
-            if (!('webkitSpeechRecognition' in window)) {{
-                status.innerText = "Speech recognition not supported.";
-                return;
-            }}
-            window.speechSynthesis.cancel();
-            var lCode = "{st.session_state.lang_code}";
-            var rec = new webkitSpeechRecognition();
-            rec.lang = lCode;
-            rec.interimResults = false;
-
-            status.innerText = "Listening for Name...";
+        msg.onend = function() {{
+            document.getElementById("fill_status").innerText = "Listening for Name (pause when done)...";
             rec.start();
-
-            rec.onresult = function(e) {{
-                var spoken = e.results[0][0].transcript;
-                status.innerText = "Recorded: " + spoken;
-                window.parent.postMessage({{type: 'streamlit:setComponentValue', value: spoken}}, '*');
-            }};
-        }}
-        </script>
-        """
-        voice_input_result = components.html(guided_mic_html, height=100)
+        }};
         
-        if voice_input_result:
-            st.session_state.form_name = str(voice_input_result)
+        rec.onresult = function(e) {{
+            var nameVal = e.results[0][0].transcript;
+            document.getElementById("fill_status").innerText = "Recorded: " + nameVal;
+            const url = new URL(window.location.href);
+            url.searchParams.set('voice_field_name', nameVal);
+            window.location.href = url.href;
+        }};
+
+        window.speechSynthesis.speak(msg);
+    }}
+    </script>
+    """
+    components.html(voice_fill_js, height=100)
 
     st.divider()
 
@@ -333,83 +310,43 @@ with tab3:
             
             l_code = st.session_state.lang_code
             if "bn" in l_code:
-                resp = f"অভিনন্দন {st.session_state.form_name}! আপনি মনোনীত হয়েছেন। আপনার সার্টিফিকেট ডাউনলোড করতে ৪ নম্বর ট্যাবে যান।"
+                res = f"অভিনন্দন {st.session_state.form_name}! আপনি নির্বাচিত হয়েছেন। আপনার অফিশিয়াল সার্টিফিকেট ডাউনলোড করতে ৪ নম্বর ট্যাবে যান।"
             elif "hi" in l_code:
-                resp = f"बधाई हो {st.session_state.form_name}! आप पात्र हैं। अपना प्रमाण पत्र डाउनलोड करने के लिए चौथे टैब पर जाएं।"
+                res = f"बधाई हो {st.session_state.form_name}! आप पात्र हैं। अपना प्रमाण पत्र डाउनलोड करने के लिए चौथे टैब पर जाएं।"
             else:
-                resp = f"Congratulations {st.session_state.form_name}! You are eligible. Please click on Page 4 to download your notice."
+                res = f"Congratulations {st.session_state.form_name}! You are eligible. Click Page 4 to download your certificate."
 
-            speak_guaranteed(resp, l_code)
-            st.info(f"🗣️ **Voice Navigation:** {resp}")
+            speak_text(res, l_code)
+            st.info(f"🗣️ **Voice Output:** {res}")
         else:
             err = "Please enter or speak your name first."
             st.warning(err)
-            speak_guaranteed(err, st.session_state.lang_code)
+            speak_text(err, st.session_state.lang_code)
 
-# --- PAGE 4: RESULTS & PDF DOWNLOAD ---
+# --- PAGE 4: CERTIFICATE GENERATION ---
 with tab4:
     st.header("Selection Certificate Download")
-    
     if st.session_state.get("form_name") and st.session_state.get("eligible"):
-        st.success(f"🎉 **Selection Verified:** {st.session_state.form_name}")
-        
-        l_code = st.session_state.lang_code
-        if "bn" in l_code:
-            dl_prompt = "আপনার সার্টিফিকেট প্রস্তুত। ডাউনলোড করতে নিচের ডাউনলোড বাটনে ক্লিক করুন।"
-        elif "hi" in l_code:
-            dl_prompt = "आपका प्रमाण पत्र तैयार है। डाउनलोड करने के लिए नीचे दिए गए बटन पर क्लिक करें।"
-        else:
-            dl_prompt = "Your certificate is ready. Click the download button below to save your official notice."
-
-        speak_guaranteed(dl_prompt, l_code)
-        st.info(f"🗣️ **Voice Direction:** {dl_prompt}")
+        st.success(f"🎉 Certificate Ready for: **{st.session_state.form_name}**")
 
         def generate_pdf(name, age, income, category):
             buffer = io.BytesIO()
             doc = SimpleDocTemplate(buffer, pagesize=letter)
             styles = getSampleStyleSheet()
-            
             story = []
             story.append(Paragraph("<b>NATIONAL ELIGIBILITY TEST PORTAL</b>", styles['Title']))
             story.append(Paragraph("Official Scheme Selection Certificate", styles['Heading2']))
             story.append(Spacer(1, 15))
-            
             info = f"<b>Applicant Name:</b> {name}<br/><b>Age:</b> {age}<br/><b>Income:</b> ₹{income}<br/><b>Category:</b> {category}<br/><b>Status:</b> <font color='green'><b>SELECTED</b></font>"
             story.append(Paragraph(info, styles['Normal']))
-            story.append(Spacer(1, 15))
-            
-            story.append(Paragraph("<b>Matched Government Schemes:</b>", styles['Heading2']))
-            data = [
-                ["Scheme Name", "Benefits Summary"],
-                ["PMEGP", "Up to 35% subsidy for micro-enterprises"],
-                ["Stand-Up India", "Bank loans up to ₹1 Crore"],
-                ["PMMY (MUDRA)", "Collateral-free loans up to ₹10 Lakhs"]
-            ]
-            
-            t = Table(data, colWidths=[150, 300])
-            t.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#FF9933')),
-                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.grey)
-            ]))
-            story.append(t)
-            
             doc.build(story)
             buffer.seek(0)
             return buffer
 
-        pdf_file = generate_pdf(
-            st.session_state.form_name, 
-            st.session_state.form_age, 
-            st.session_state.form_income, 
-            st.session_state.form_category
-        )
-        
-        st.download_button(
-            label="📄 Download Official Notice PDF",
-            data=pdf_file,
-            file_name=f"Selection_Notice_{st.session_state.form_name}.pdf",
-            mime="application/pdf"
-        )
+        pdf = generate_pdf(st.session_state.form_name, st.session_state.form_age, st.session_state.form_income, st.session_state.form_category)
+        st.download_button("📄 Download Official Certificate PDF", data=pdf, file_name=f"Certificate_{st.session_state.form_name}.pdf", mime="application/pdf")
     else:
-        st.warning("No record found. Please complete Page 3 first.")
+        st.warning("Please complete Page 3 first.")
+
+        
+        
